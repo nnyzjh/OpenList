@@ -50,6 +50,10 @@ workflows:
           go install golang.org/x/mobile/cmd/gomobile@latest
           gomobile init
 
+      - name: Add golang.org/x/mobile to module
+        script: |
+          go get golang.org/x/mobile@latest
+
       - name: Build OpenListCore.xcframework
         script: |
           export PATH="$PATH:$(go env GOPATH)/bin"
