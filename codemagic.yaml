@@ -1,0 +1,84 @@
+# Build the self-compiled OpenList iOS app (unsigned .ipa) on Codemagic.
+#
+# Codemagic 免费档每月 500 分钟 M2 Mac 机器，不走 GitHub Actions 的排队。
+# 用法：Noah 在 codemagic.io 用 GitHub 登录，接上 nnyzjh/OpenList 这个仓库，
+# 选 iOS App，扫到这个 codemagic.yaml 后点 Start build。
+#
+# 流程（和 .github/workflows/build-ios.yml 同款）：
+#   1. 拉前端（Web 管理页）v4.2.9 的包，解到 public/dist
+#      （core 启动时把这个目录嵌进二进制；没有 public/dist/index.html
+#      核心启动会直接 FATA 退出，所以这一步必须成功，失败就停）。
+#   2. gomobile bind 把 mobile 包编成 OpenListCore.xcframework。
+#   3. xcodebuild 编出不签名的 .app（CODE_SIGNING_ALLOWED=NO）。
+#   4. 打成未签名 .ipa，传上来当 artifact。
+# 不签名、不需要任何 Secret。签名是下一步（另有 ipa-signer 流程）。
+workflows:
+  ios-unsigned:
+    name: Build unsigned iOS app
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      cocoapods: default
+      vars:
+        CORE_VERSION: v4.2.9
+        FRONTEND_VERSION: v4.2.9
+    scripts:
+      - name: Ensure Go is installed
+        script: |
+          if ! command -v go >/dev/null 2>&1; then
+            brew install go
+          fi
+          go version
+
+      - name: Fetch frontend dist (web UI)
+        script: |
+          curl -fsSL -o frontend.tar.gz \
+            "https://github.com/OpenListTeam/OpenList-Frontend/releases/download/${FRONTEND_VERSION}/openlist-frontend-dist-${FRONTEND_VERSION}.tar.gz"
+          rm -rf public/dist && mkdir -p public/dist
+          tar -xzf frontend.tar.gz -C public/dist
+          rm -f frontend.tar.gz
+          ls public/dist | head
+
+      - name: Download Go modules
+        script: |
+          go mod download
+
+      - name: Install gomobile
+        script: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      - name: Build OpenListCore.xcframework
+        script: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          BUILT_AT="$(date -u +%FT%TZ)"
+          gomobile bind -target=ios -tags=jsoniter \
+            -ldflags="-X 'github.com/OpenListTeam/OpenList/v4/internal/conf.Version=${CORE_VERSION}' -X 'github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=${FRONTEND_VERSION}' -X 'github.com/OpenListTeam/OpenList/v4/internal/conf.GitCommit=${CM_COMMIT}' -X 'github.com/OpenListTeam/OpenList/v4/internal/conf.BuiltAt=${BUILT_AT}'" \
+            -o ios/OpenListApp/OpenListCore.xcframework \
+            ./mobile
+          ls ios/OpenListApp/OpenListCore.xcframework
+
+      - name: Build unsigned .app with xcodebuild
+        script: |
+          xcodebuild -project ios/OpenListApp/OpenListApp.xcodeproj \
+            -scheme OpenListApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+          ls -la build/Build/Products/Release-iphoneos/OpenListApp.app
+
+      - name: Package unsigned .ipa
+        script: |
+          APP_PATH="build/Build/Products/Release-iphoneos/OpenListApp.app"
+          rm -rf Payload OpenList-v4.2.9-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          ditto -c -k --sequesterRsrc --keepParent Payload OpenList-v4.2.9-unsigned.ipa
+          ls -la OpenList-v4.2.9-unsigned.ipa
+
+    artifacts:
+      - OpenList-v4.2.9-unsigned.ipa
+      - /tmp/xcodebuild_logs/*.log
