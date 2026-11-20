@@ -93,7 +93,7 @@
 				BAE0AE76609E9ABA682C03AD /* Assets.xcassets */,
 				1EC5E045742248C9A2C283B0 /* Info.plist */,
 			);
-			path = OpenListApp;
+			name = OpenListApp;
 			sourceTree = "<group>";
 		};
 		62AFA3C3D592219B21DA9039 /* Products */ = {
@@ -317,7 +317,7 @@
 					CODE_SIGN_STYLE = Automatic;
 					CURRENT_PROJECT_VERSION = 1;
 					FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(PROJECT_DIR)");
-					INFOPLIST_FILE = OpenListApp/Info.plist;
+					INFOPLIST_FILE = Info.plist;
 					LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
 					MARKETING_VERSION = 4.2.9;
 					PRODUCT_BUNDLE_IDENTIFIER = com.openlist.ios;
@@ -336,7 +336,7 @@
 					CODE_SIGN_STYLE = Automatic;
 					CURRENT_PROJECT_VERSION = 1;
 					FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(PROJECT_DIR)");
-					INFOPLIST_FILE = OpenListApp/Info.plist;
+					INFOPLIST_FILE = Info.plist;
 					LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
 					MARKETING_VERSION = 4.2.9;
 					PRODUCT_BUNDLE_IDENTIFIER = com.openlist.ios;
