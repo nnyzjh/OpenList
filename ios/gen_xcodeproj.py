@@ -349,6 +349,10 @@ common_target = {
     "INFOPLIST_FILE": "Info.plist",
     "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks")',
     "MARKETING_VERSION": "4.2.9",
+    # Go runtime (OpenListCore) calls res_9_ninit/res_9_nsearch/res_9_nclose
+    # for DNS; on iOS those live in libresolv. Without -lresolv the link
+    # fails with "Undefined symbols ... _res_9_nclose" etc.
+    "OTHER_LDFLAGS": '"$(inherited) -lresolv"',
     "PRODUCT_BUNDLE_IDENTIFIER": "com.openlist.ios",
     "PRODUCT_NAME": '"$(TARGET_NAME)"',
     "SWIFT_EMBED_LIBRARIES_WITH_INSTALL": "YES",
