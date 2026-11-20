@@ -52,7 +52,7 @@ workflows:
 
       - name: Add golang.org/x/mobile to module
         script: |
-          go get golang.org/x/mobile@latest
+          go get -tool golang.org/x/mobile/cmd/gobind
 
       - name: Build OpenListCore.xcframework
         script: |
