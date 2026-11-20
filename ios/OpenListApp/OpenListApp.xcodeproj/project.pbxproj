@@ -19,6 +19,7 @@
 		C4DF8AF81FDDD3CA87EDAE0C /* WebDAVView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C062CBBB1EAE0188BBB06B33 /* WebDAVView.swift */; };
 		07EE9EC4AF662E46FD42B2D3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 774859AC3365A37567AC5CE7 /* SettingsView.swift */; };
 		A8AFD0DD4FDA3F7F6991629B /* OpenListCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119BEBF5C132771F4066BD8C /* OpenListCore.xcframework */; };
+		4A0888D4B39B2D9204BCC8FE /* OpenListCore.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 119BEBF5C132771F4066BD8C /* OpenListCore.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A6BCEE36AA94BB814370B627 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BAE0AE76609E9ABA682C03AD /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -39,6 +40,20 @@
 		1EC5E045742248C9A2C283B0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		196B9B6AE6F6CE741FE7C4B8 /* OpenListApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenListApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		72E21FAF0543BA4D5137CBDA /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				4A0888D4B39B2D9204BCC8FE /* OpenListCore.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		B8D8BC04DC4A32040F13FE61 /* Frameworks */ = {
@@ -99,6 +114,7 @@
 				2F2788DDE19C9E234157EBAF /* Sources */,
 				B8D8BC04DC4A32040F13FE61 /* Frameworks */,
 				BB8EF58E9E192380FA14368E /* Resources */,
+				72E21FAF0543BA4D5137CBDA /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
