@@ -83,6 +83,10 @@ workflows:
 
       - name: Build unsigned .app with xcodebuild
         script: |
+          # set -e: a failed xcodebuild must fail the step. Without it the
+          # trailing `ls` exits 0 and masks the failure, so Codemagic
+          # happily packages a hollow .app (468 B .ipa) as "success".
+          set -e
           xcodebuild -project ios/OpenListApp/OpenListApp.xcodeproj \
             -scheme OpenListApp \
             -configuration Release \
@@ -93,6 +97,7 @@ workflows:
 
       - name: Package unsigned .ipa
         script: |
+          set -e
           APP_PATH="build/Build/Products/Release-iphoneos/OpenListApp.app"
           rm -rf Payload OpenList-v4.2.9-unsigned.ipa
           mkdir -p Payload
