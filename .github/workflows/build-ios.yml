@@ -57,7 +57,7 @@ jobs:
 
       - name: Add golang.org/x/mobile to module
         run: |
-          go get golang.org/x/mobile@latest
+          go get -tool golang.org/x/mobile/cmd/gobind
 
       - name: Build OpenListCore.xcframework
         run: |
