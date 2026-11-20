@@ -161,7 +161,13 @@ section("PBXGroup", [
     "\t\t\tchildren = (",
     group_app_children,
     "\t\t\t);",
-    "\t\t\tpath = OpenListApp;",
+    # NOTE: no `path` here. This group IS the project dir
+    # (ios/OpenListApp/): the Swift files, Info.plist and Assets live
+    # directly in it, not in an ios/OpenListApp/OpenListApp/ subfolder.
+    # (An earlier `path = OpenListApp;` pointed every source at that
+    # nonexistent subfolder, so xcodebuild produced a hollow .app and
+    # the .ipa came out ~468 B.)
+    "\t\t\tname = OpenListApp;",
     "\t\t\tsourceTree = \"<group>\";",
     "\t\t};",
     f"\t\t{GROUP_PRODUCTS} /* Products */ = {{",
@@ -340,7 +346,7 @@ common_target = {
     "CODE_SIGN_STYLE": "Automatic",
     "CURRENT_PROJECT_VERSION": "1",
     "FRAMEWORK_SEARCH_PATHS": '("$(inherited)", "$(PROJECT_DIR)")',
-    "INFOPLIST_FILE": "OpenListApp/Info.plist",
+    "INFOPLIST_FILE": "Info.plist",
     "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks")',
     "MARKETING_VERSION": "4.2.9",
     "PRODUCT_BUNDLE_IDENTIFIER": "com.openlist.ios",
