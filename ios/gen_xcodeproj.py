@@ -56,6 +56,7 @@ GROUP_PRODUCTS = I("PBXGroup:Products")
 PHASE_SOURCES = I("PBXSourcesBuildPhase")
 PHASE_FRAMEWORKS = I("PBXFrameworksBuildPhase")
 PHASE_RESOURCES = I("PBXResourcesBuildPhase")
+PHASE_EMBED = I("PBXCopyFilesBuildPhase:Embed Frameworks")
 XCFRAMEWORK = I("PBXFileReference:OpenListCore.xcframework")
 ASSETS = I("PBXFileReference:Assets.xcassets")
 INFOPLIST = I("PBXFileReference:Info.plist")
@@ -70,6 +71,7 @@ build_files = {}
 for f in SWIFT_FILES:
     build_files[f] = I("PBXBuildFile:" + f)
 build_files["xcframework"] = I("PBXBuildFile:OpenListCore.xcframework")
+build_files["xcframework_embed"] = I("PBXBuildFile:OpenListCore.xcframework:embed")
 build_files["assets"] = I("PBXBuildFile:Assets.xcassets")
 
 file_refs = {}
@@ -94,6 +96,7 @@ body = []
 for f in SWIFT_FILES:
     body.append(f"\t\t{build_files[f]} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {file_refs[f]} /* {f} */; }};")
 body.append(f"\t\t{build_files['xcframework']} /* OpenListCore.xcframework in Frameworks */ = {{isa = PBXBuildFile; fileRef = {XCFRAMEWORK} /* OpenListCore.xcframework */; }};")
+body.append(f"\t\t{build_files['xcframework_embed']} /* OpenListCore.xcframework in Embed Frameworks */ = {{isa = PBXBuildFile; fileRef = {XCFRAMEWORK} /* OpenListCore.xcframework */; settings = {{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }}; }};")
 body.append(f"\t\t{build_files['assets']} /* Assets.xcassets in Resources */ = {{isa = PBXBuildFile; fileRef = {ASSETS} /* Assets.xcassets */; }};")
 section("PBXBuildFile", body)
 
@@ -106,6 +109,24 @@ body.append(f"\t\t{ASSETS} /* Assets.xcassets */ = {{isa = PBXFileReference; las
 body.append(f"\t\t{INFOPLIST} /* Info.plist */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = \"<group>\"; }};")
 body.append(f"\t\t{PRODUCT} /* OpenListApp.app */ = {{isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenListApp.app; sourceTree = BUILT_PRODUCTS_DIR; }};")
 section("PBXFileReference", body)
+
+# ---------------------------------------------------------------- PBXCopyFilesBuildPhase (Embed Frameworks)
+# Without this phase the xcframework is only linked, never copied into
+# the .app bundle: the .ipa comes out tiny and the app crashes on launch
+# (dyld: Library not loaded). dstSubfolderSpec 10 = Frameworks folder.
+section("PBXCopyFilesBuildPhase", [
+    f"\t\t{PHASE_EMBED} /* Embed Frameworks */ = {{",
+    "\t\t\tisa = PBXCopyFilesBuildPhase;",
+    "\t\t\tbuildActionMask = 2147483647;",
+    "\t\t\tdstPath = \"\";",
+    "\t\t\tdstSubfolderSpec = 10;",
+    "\t\t\tfiles = (",
+    f"\t\t\t\t{build_files['xcframework_embed']} /* OpenListCore.xcframework in Embed Frameworks */,",
+    "\t\t\t);",
+    "\t\t\tname = \"Embed Frameworks\";",
+    "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+    "\t\t};",
+])
 
 # ---------------------------------------------------------------- PBXFrameworksBuildPhase
 section("PBXFrameworksBuildPhase", [
@@ -165,6 +186,7 @@ section("PBXNativeTarget", [
     f"\t\t\t\t{PHASE_SOURCES} /* Sources */,",
     f"\t\t\t\t{PHASE_FRAMEWORKS} /* Frameworks */,",
     f"\t\t\t\t{PHASE_RESOURCES} /* Resources */,",
+    f"\t\t\t\t{PHASE_EMBED} /* Embed Frameworks */,",
     "\t\t\t);",
     "\t\t\tbuildRules = (",
     "\t\t\t);",
