@@ -54,6 +54,18 @@ workflows:
         script: |
           go get -tool golang.org/x/mobile/cmd/gobind
 
+      - name: Diagnose go list -m (temporary)
+        script: |
+          go version
+          go env GOFLAGS GOPROXY GOMODCACHE
+          if GOOS=ios GOARCH=arm64 go list -m -json -tags=jsoniter,ios all > /tmp/gomobile-list-m.json 2> /tmp/gomobile-list-m.err; then
+            echo "go list -m OK"
+          else
+            echo "go list -m FAILED:"
+            cat /tmp/gomobile-list-m.err
+            exit 1
+          fi
+
       - name: Build OpenListCore.xcframework
         script: |
           export PATH="$PATH:$(go env GOPATH)/bin"
