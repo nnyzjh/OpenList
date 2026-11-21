@@ -45,7 +45,7 @@ final class APIClient: ObservableObject {
         return req
     }
 
-    private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
+    private func send<T: Decodable>(_ request: URLRequest, retried: Bool = false) async throws -> T {
         let data: Data
         let response: URLResponse
         do {
@@ -58,6 +58,18 @@ final class APIClient: ObservableObject {
         do {
             let envelope = try decoder.decode(APIResponse<T>.self, from: data)
             guard envelope.code == 200 else {
+                // 401：token 失效了（比如密码在管理页被改过、或 token 过期）。
+                // 还没重试过，就用钥匙串密码重新登录一次，拿到新 token 再发一次。
+                // 重登录也失败（密码真的变了）就直接报 401，不死循环。
+                if envelope.code == 401 && !retried {
+                    if await reauth() {
+                        var retryReq = request
+                        if let newToken = token {
+                            retryReq.setValue(newToken, forHTTPHeaderField: "Authorization")
+                        }
+                        return try await send(retryReq, retried: true)
+                    }
+                }
                 throw APIError.apiError(envelope.code, envelope.message)
             }
             // 有些接口成功时不返回 data（比如改用户、首次安装），
@@ -76,6 +88,26 @@ final class APIClient: ObservableObject {
                 throw APIError.httpStatus(http.statusCode, body)
             }
             throw APIError.decoding(error, String(body.prefix(500)))
+        }
+    }
+
+    /// 用钥匙串里的管理员密码重新登录一次（401 时自动恢复 token 用）。
+    /// 直接发 HTTP 请求，不走 send()，避免递归。成功返回 true，
+    /// 失败返回 false（比如密码在管理页被改了，钥匙串里还是旧密码）。
+    private func reauth() async -> Bool {
+        guard let password = KeychainHelper.loadAdminPassword(), !password.isEmpty else { return false }
+        var req = URLRequest(url: Self.baseURL.appendingPathComponent("/api/auth/login"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONEncoder().encode(["username": "admin", "password": password])
+        do {
+            let (data, _) = try await session.data(for: req)
+            let envelope = try decoder.decode(APIResponse<TokenData>.self, from: data)
+            guard envelope.code == 200, let newToken = envelope.data?.token else { return false }
+            token = newToken
+            return true
+        } catch {
+            return false
         }
     }
 

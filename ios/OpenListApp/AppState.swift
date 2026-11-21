@@ -54,7 +54,11 @@ final class AppState: ObservableObject {
 
             // 2. 启动 Go 核心（数据目录 = Documents，密码先传进去，
             //    首次启动 core 会用这个密码自动建好 admin 账号）。
-            ServerBridge.start(adminPassword: password)
+            //    服务已经在跑（比如上次启动只是在登录那步失败）就不再重复 Init，
+            //    直接往下走登录；Init 只调一次才安全。
+            if !ServerBridge.isRunning {
+                ServerBridge.start(adminPassword: password)
+            }
 
             // 3. 等 HTTP 服务起来（最多 15 秒）。
             phase = .starting("正在等服务起来…")
@@ -221,6 +225,57 @@ final class AppState: ObservableObject {
             user = try await api.me()
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    // MARK: - 管理员密码
+
+    /// 在管理页改过 admin 密码后，在 App 里填入新密码同步：
+    /// 存钥匙串 → 更新 WebDAV 页显示的密码 → 清掉旧 token → 重新登录。
+    /// 成功返回 true；密码不对返回 false（原因写在 lastError 里）。
+    func updateAdminPassword(_ newPassword: String) async -> Bool {
+        let trimmed = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        KeychainHelper.saveAdminPassword(trimmed)
+        adminPassword = trimmed
+        api.token = nil
+        do {
+            _ = try await api.login(username: "admin", password: trimmed)
+            user = try? await api.me()
+            storages = (try? await api.listStorages()) ?? storages
+            lastError = nil
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// 重置管理员密码（不删任何数据）：直接改 core 里 admin 的密码，
+    /// 不需要旧密码。用于在管理页改密码后把自己锁在外面、
+    /// 连旧密码都不认的时候。成功后同时存进钥匙串、更新显示、重新登录。
+    /// 只有重置和登录都成功才返回 true；登录如果撞上 429 锁定，
+    /// 密码其实已经改好了，lastError 里会说明等 5 分钟后再重试。
+    func resetAdminPassword(_ newPassword: String) async -> Bool {
+        let trimmed = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let errMsg = ServerBridge.resetAdminPassword(trimmed)
+        guard errMsg.isEmpty else {
+            lastError = errMsg
+            return false
+        }
+        KeychainHelper.saveAdminPassword(trimmed)
+        adminPassword = trimmed
+        api.token = nil
+        do {
+            _ = try await api.login(username: "admin", password: trimmed)
+            user = try? await api.me()
+            storages = (try? await api.listStorages()) ?? storages
+            lastError = nil
+            return true
+        } catch {
+            lastError = "密码已重置。登录失败：" + error.localizedDescription + "（如果是 429 锁定，等 5 分钟后再点重试）"
+            return false
         }
     }
 

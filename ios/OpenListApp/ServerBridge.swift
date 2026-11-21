@@ -54,4 +54,13 @@ enum ServerBridge {
     static var coreVersion: String {
         MobileVersion()
     }
+
+    /// 重置管理员密码（不删任何数据）。用 core 自己的方式把 admin 的密码
+    /// 改成新值，不需要旧密码。返回 "" 表示成功，否则是错误信息。
+    /// 只在数据库已打开时可用（启动后）。注意：这一步绕过登录接口，
+    /// 所以账号被 429 锁定时也能改密码；但改完立刻登录仍可能撞上 429，
+    /// 要等锁过期（5 分钟）再登录。
+    static func resetAdminPassword(_ newPassword: String) -> String {
+        MobileResetAdminPassword(newPassword)
+    }
 }

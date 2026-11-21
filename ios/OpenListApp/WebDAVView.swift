@@ -63,7 +63,7 @@ struct WebDAVView: View {
                 }
 
                 Section {
-                    Text("在 VidHub / Infuse 里添加 WebDAV 源，填上面的地址和账号就能用。注意：本 App 必须在前台，播放器才能连上；切到后台约 2 分钟后服务会停，这是 iOS 的限制。")
+                    Text("在 VidHub / Infuse 里添加 WebDAV 源，填上面的地址和账号就能用。注意：切到播放器后本 App 到了后台，服务会停，播放器就连不上——去设置里打开“后台运行”，服务会多活一会儿；iOS 仍可能挂起 App，这是系统限制。")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }

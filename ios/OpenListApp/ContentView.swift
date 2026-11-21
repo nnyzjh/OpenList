@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
+    @State private var failedPassword = ""
 
     var body: some View {
         switch appState.phase {
@@ -21,10 +22,47 @@ struct ContentView: View {
                 Text(message)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
+                // 如果在管理页改过 admin 密码，钥匙串里的旧密码登不进去，
+                // 启动就会卡在这里。在这里填入新密码同步后再重试；
+                // 连旧密码都不认了就用“重置密码”，直接改掉密码，不删数据。
+                Text("如果在管理页改过 admin 密码，在这里填入新密码再重试；连旧密码都不认了，就点“重置密码”。")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                SecureField("新密码", text: $failedPassword)
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                Button("同步密码并重试") {
+                    Task {
+                        if await appState.updateAdminPassword(failedPassword) {
+                            failedPassword = ""
+                            await appState.retryStartup()
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(failedPassword.isEmpty)
+                Button("重置密码（不删数据）") {
+                    Task {
+                        if await appState.resetAdminPassword(failedPassword) {
+                            failedPassword = ""
+                            await appState.retryStartup()
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(failedPassword.isEmpty)
+                if let err = appState.lastError {
+                    Text(err)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                }
                 Button("重试") {
                     Task { await appState.retryStartup() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
             }
             .padding()
         case .ready:
@@ -46,6 +84,7 @@ struct ContentView: View {
 // 最多 200 行）。core 没有现成的日志接口，所以直接读文件。
 struct LogsView: View {
     @State private var logText = "正在读取日志…"
+    @State private var copied = false
 
     var body: some View {
         NavigationStack {
@@ -59,10 +98,22 @@ struct LogsView: View {
             .navigationTitle("日志")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        loadLog()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
+                    HStack(spacing: 16) {
+                        Button {
+                            UIPasteboard.general.string = logText
+                            copied = true
+                            Task {
+                                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                                copied = false
+                            }
+                        } label: {
+                            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        }
+                        Button {
+                            loadLog()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
                 }
             }

@@ -23,6 +23,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/cmd/flags"
 	"github.com/OpenListTeam/OpenList/v4/internal/bootstrap"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
+	"github.com/OpenListTeam/OpenList/v4/internal/op"
 )
 
 // SetDataDir sets the absolute path of the data directory (config.json,
@@ -74,4 +75,25 @@ func IsRunning() bool {
 // (for example "v4.2.9").
 func Version() string {
 	return conf.Version
+}
+
+// ResetAdminPassword sets the admin user's password to the given value,
+// using the core's own password hashing (SetPassword + UpdateUser).
+// It needs no old password and touches nothing else (no data is wiped),
+// so it recovers a lockout without losing storages or files.
+// Call only after Init (the database must be open).
+// Returns "" on success, or an error message on failure.
+// Note: this bypasses the login API, so it works even while the account
+// is 429-locked from too many failed sign-ins; the next login still has
+// to wait for that lock (5 minutes) to expire.
+func ResetAdminPassword(newPassword string) string {
+	admin, err := op.GetAdmin()
+	if err != nil {
+		return err.Error()
+	}
+	admin.SetPassword(newPassword)
+	if err := op.UpdateUser(admin); err != nil {
+		return err.Error()
+	}
+	return ""
 }

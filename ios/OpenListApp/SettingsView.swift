@@ -4,6 +4,8 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @State private var showResetConfirm = false
+    @State private var newPassword = ""
+    @State private var passwordMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -50,6 +52,44 @@ struct SettingsView: View {
                     if newValue {
                         appState.requestNotificationPermission()
                     }
+                }
+
+                Section("管理员密码") {
+                    SecureField("填入新密码", text: $newPassword)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    Button("同步密码并重新登录") {
+                        Task {
+                            let ok = await appState.updateAdminPassword(newPassword)
+                            if ok {
+                                passwordMessage = "已同步，文件页可以刷新了，WebDAV 页的密码也更新了。"
+                                newPassword = ""
+                            } else {
+                                passwordMessage = appState.lastError ?? "同步失败，请检查密码。"
+                            }
+                        }
+                    }
+                    .disabled(newPassword.isEmpty)
+                    Button("重置密码（忘记密码时用，不删数据）") {
+                        Task {
+                            let ok = await appState.resetAdminPassword(newPassword)
+                            if ok {
+                                passwordMessage = "密码已重置并登录成功。"
+                                newPassword = ""
+                            } else {
+                                passwordMessage = appState.lastError ?? "重置失败。"
+                            }
+                        }
+                    }
+                    .disabled(newPassword.isEmpty)
+                    if let msg = passwordMessage {
+                        Text(msg)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                    Text("在 Safari 管理页改过密码后，用“同步”把新密码填进来；如果连旧密码都不认了、进不去管理页，用“重置”直接改掉密码，存储和文件都不会丢。")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
 
                 Section("存储") {
