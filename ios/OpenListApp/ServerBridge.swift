@@ -55,6 +55,22 @@ enum ServerBridge {
         MobileVersion()
     }
 
+    /// 把数据库刷到磁盘：把 SQLite WAL 里的已提交数据写进 data.db 主文件。
+    /// 切后台时调一次，之后就算 App 被从后台划掉（强制杀掉、来不及
+    /// 正常关服务），数据也已经在 data.db 里，不会丢。
+    /// 只在数据库已打开时可用（启动后）。返回 "" 表示成功，否则是错误信息。
+    static func checkpointDB() -> String {
+        MobileCheckpointDB()
+    }
+
+    /// 设置管理员用户名（不删任何数据）。用 core 自己的方式把 admin 的
+    /// 用户名改成新值，不需要密码。返回 "" 表示成功，否则是错误信息。
+    /// 只在数据库已打开时可用（启动后）。admin 是按角色找的，
+    /// 改名不影响账号本身（ID、权限、存储都在）。
+    static func setAdminUsername(_ newUsername: String) -> String {
+        MobileSetAdminUsername(newUsername)
+    }
+
     /// 重置管理员密码（不删任何数据）。用 core 自己的方式把 admin 的密码
     /// 改成新值，不需要旧密码。返回 "" 表示成功，否则是错误信息。
     /// 只在数据库已打开时可用（启动后）。注意：这一步绕过登录接口，
