@@ -234,15 +234,15 @@ final class AppState: ObservableObject {
     // MARK: - 灵动岛 Live Activity（保活常驻）
 
     /// 保活开始时在灵动岛常驻一个 Live Activity（“OpenList 运行中”）。
-    /// 点一下回 App，不停服务；停服务时结束。iOS 16.1+ 才有。
+    /// 点一下回 App，不停服务；停服务时结束。iOS 16.2+ 才有。
     private func startLiveActivity() {
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             LiveActivityManager.start()
         }
     }
 
     private func endLiveActivity() {
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             LiveActivityManager.end()
         }
     }

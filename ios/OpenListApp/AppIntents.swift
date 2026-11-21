@@ -9,7 +9,7 @@ enum KeepAlive {
         guard UserDefaults.standard.bool(forKey: "backgroundKeepAlive"),
               ServerBridge.isRunning else { return }
         SilentAudioKeeper.shared.start()
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             LiveActivityManager.start()
         }
     }

@@ -152,7 +152,7 @@ struct EmbyView: View {
                 Button("保存") {
                     Task {
                         guard let key = renamingKey else { return }
-                        let err = ServerBridge.renameAppKey(key.id, renameName.trimmingCharacters(in: .whitespaces))
+                        let err = ServerBridge.renameAppKey(key.id, newName: renameName.trimmingCharacters(in: .whitespaces))
                         if err.isEmpty {
                             renamingKey = nil
                             await reload()
