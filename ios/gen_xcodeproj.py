@@ -476,11 +476,11 @@ common_target = {
     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
     "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
     "CODE_SIGN_STYLE": "Automatic",
-    "CURRENT_PROJECT_VERSION": "8",
+    "CURRENT_PROJECT_VERSION": "9",
     "FRAMEWORK_SEARCH_PATHS": '("$(inherited)", "$(PROJECT_DIR)")',
     "INFOPLIST_FILE": "Info.plist",
     "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks")',
-    "MARKETING_VERSION": "4.2.9.8",
+    "MARKETING_VERSION": "4.2.9.9",
     # Go runtime (OpenListCore) calls res_9_ninit/res_9_nsearch/res_9_nclose
     # for DNS; on iOS those live in libresolv. Without -lresolv the link
     # fails with "Undefined symbols ... _res_9_nclose" etc.
@@ -499,11 +499,11 @@ release_target = dict(common_target)
 common_target_ext = {
     "APPLICATION_EXTENSION_API_ONLY": "YES",
     "CODE_SIGN_STYLE": "Automatic",
-    "CURRENT_PROJECT_VERSION": "8",
+    "CURRENT_PROJECT_VERSION": "9",
     "INFOPLIST_FILE": "../OpenListLiveActivity/Info.plist",
     "IPHONEOS_DEPLOYMENT_TARGET": "16.1",
     "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks")',
-    "MARKETING_VERSION": "4.2.9.8",
+    "MARKETING_VERSION": "4.2.9.9",
     "PRODUCT_BUNDLE_IDENTIFIER": "com.openlist.ios.OpenListLiveActivity",
     "PRODUCT_NAME": '"$(TARGET_NAME)"',
     "SWIFT_EMBED_LIBRARIES_WITH_INSTALL": "YES",
