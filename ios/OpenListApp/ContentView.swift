@@ -83,7 +83,7 @@ struct LogsView: View {
         try? handle.seek(toOffset: start)
         var data = Data()
         if let d = try? handle.readToEnd() {
-            data = d ?? Data()
+            data = d
         }
         var text = String(data: data, encoding: .utf8) ?? ""
         // 从中间截断时丢掉第一行不完整的行。

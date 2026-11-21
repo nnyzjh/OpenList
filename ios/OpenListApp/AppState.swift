@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import SwiftUI
 import UserNotifications
 
 // App 的总状态机：启动核心 → 登录 → 建好本地存储 → 就绪。

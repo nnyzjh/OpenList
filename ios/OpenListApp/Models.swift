@@ -4,8 +4,8 @@ import Foundation
 // OpenList 的接口统一返回 {"code": 200, "message": "success", "data": ...}。
 // code != 200 表示失败，message 里是原因。
 struct APIResponse<T: Decodable>: Decodable {
-    let code: Int = 0
-    let message: String = ""
+    var code: Int = 0
+    var message: String = ""
     let data: T?
 }
 
