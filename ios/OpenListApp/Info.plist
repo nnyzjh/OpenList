@@ -46,6 +46,15 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- 联网：允许明文 HTTP 访问本机/局域网地址（管理页、WebDAV、缩略图都是 http://127.0.0.1），
+	     并声明本地网络用途，iOS 才会弹出本地网络权限、让局域网里的播放器连得上。 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>本 App 需要在本地网络提供文件服务（WebDAV 和管理页），以便本机播放器访问你的文件。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
