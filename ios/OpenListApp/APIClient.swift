@@ -7,7 +7,7 @@ enum APIError: LocalizedError {
     case httpStatus(Int, String)
     case apiError(Int, String)
     case transport(Error)
-    case decoding(Error)
+    case decoding(Error, String)
     case noData
 
     var errorDescription: String? {
@@ -15,7 +15,7 @@ enum APIError: LocalizedError {
         case .httpStatus(let code, let msg): return "HTTP \(code)：\(msg)"
         case .apiError(let code, let msg): return "接口错误 \(code)：\(msg)"
         case .transport(let e): return "连不上本机服务：\(e.localizedDescription)"
-        case .decoding(let e): return "接口返回解析失败：\(e.localizedDescription)"
+        case .decoding(let e, let body): return "接口返回解析失败：\(e.localizedDescription)\n原始返回（前 500 字）：\(body)"
         case .noData: return "接口没有返回数据"
         }
     }
@@ -75,7 +75,7 @@ final class APIClient: ObservableObject {
             if http.statusCode != 200 {
                 throw APIError.httpStatus(http.statusCode, body)
             }
-            throw APIError.decoding(error)
+            throw APIError.decoding(error, String(body.prefix(500)))
         }
     }
 
@@ -184,6 +184,20 @@ final class APIClient: ObservableObject {
         let req = CreateReq(mount_path: mountPath, driver: "Local", addition: addition, remark: remark)
         let resp: CreateResp = try await postJSON("/api/admin/storage/create", req)
         return resp.id
+    }
+
+    /// POST /api/admin/storage/delete?id=N —— 删一个存储（id 在 query 里，body 为空）。
+    /// 用于 /local 根目录变了（换过容器）时删掉旧的再重建。
+    func deleteStorage(id: Int) async throws {
+        var comps = URLComponents(url: Self.baseURL.appendingPathComponent("/api/admin/storage/delete"), resolvingAgainstBaseURL: false)!
+        comps.queryItems = [URLQueryItem(name: "id", value: String(id))]
+        var req = URLRequest(url: comps.url!)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token {
+            req.setValue(token, forHTTPHeaderField: "Authorization")
+        }
+        let _: EmptyData = try await send(req)
     }
 
     // MARK: - 文件

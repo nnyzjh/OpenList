@@ -33,6 +33,18 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
 
+                Section("后台运行") {
+                    Toggle("后台运行", isOn: $appState.backgroundKeepAlive)
+                    Text("开启后切到后台不立即停服，服务多活一会儿；息屏也可访问服务。会多耗电，iOS 仍可能挂起 App。默认关闭。")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                .onChange(of: appState.backgroundKeepAlive) { newValue in
+                    if newValue {
+                        appState.requestNotificationPermission()
+                    }
+                }
+
                 Section("存储") {
                     if appState.storages.isEmpty {
                         Text("没有存储")

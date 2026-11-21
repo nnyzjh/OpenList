@@ -11,7 +11,8 @@ struct FileNav: Hashable {
 struct FilesRootView: View {
     var body: some View {
         NavigationStack {
-            FilesView(path: AppState.localMountPath)
+            // 从根目录进：先列出全部存储（/local、/155 等），点进去再看文件。
+            FilesView(path: "/")
                 .navigationDestination(for: String.self) { path in
                     FilesView(path: path)
                 }
@@ -31,8 +32,14 @@ struct FilesView: View {
     @State private var error: String?
 
     private var title: String {
+        if path == "/" { return "浏览" }
         if path == AppState.localMountPath { return "本地文件" }
         return (path as NSString).lastPathComponent
+    }
+
+    /// 子路径拼接：根目录是 "/"，直接拼会出 "//local"，单独处理。
+    private func childPath(_ name: String) -> String {
+        path == "/" ? "/" + name : path + "/" + name
     }
 
     var body: some View {
@@ -46,7 +53,9 @@ struct FilesView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("这里还是空的")
                         .font(.headline)
-                    Text("把文件放进“文件”App 里的 OpenList 文件夹，或在 WebDAV 页打开写入后用播放器/电脑传进来。")
+                    Text(path == AppState.localMountPath
+                        ? "把文件放进“文件”App 里的 OpenList 文件夹，或在 WebDAV 页打开写入后用播放器/电脑传进来。"
+                        : "去管理页添加一个存储，这里就会列出来。")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -54,11 +63,11 @@ struct FilesView: View {
             }
             ForEach(items) { item in
                 if item.is_dir {
-                    NavigationLink(value: path + "/" + item.name) {
+                    NavigationLink(value: childPath(item.name)) {
                         FileRow(item: item)
                     }
                 } else {
-                    NavigationLink(value: FileNav(path: path + "/" + item.name, item: item)) {
+                    NavigationLink(value: FileNav(path: childPath(item.name), item: item)) {
                         FileRow(item: item)
                     }
                 }

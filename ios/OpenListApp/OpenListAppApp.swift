@@ -16,11 +16,12 @@ struct OpenListAppApp: App {
         .onChange(of: scenePhase) { phase in
             switch phase {
             case .background:
-                // 切后台：停掉服务（iOS 约 2 分钟后也会把 App 挂起，
-                // 服务本来就活不过后台，这是系统限制，不是 bug）。
-                appState.shutdown()
+                // 切后台：保活开着就不停服务（放无声音频 + 发一条“服务正在运行中”通知），
+                // 关着（默认）就停服务。注意：即便保活开着，iOS 仍可能因内存压力
+                // 或音频中断把 App 挂起，保活不是 100% 可靠。
+                appState.onEnterBackground()
             case .active:
-                Task { await appState.resume() }
+                Task { await appState.onEnterForeground() }
             default:
                 break
             }
