@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.2.9.8</string>
+	<string>4.2.9.9</string>
 	<key>CFBundleVersion</key>
-	<string>8</string>
+	<string>9</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchScreen</key>
@@ -65,5 +65,8 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<!-- 灵动岛 Live Activity 必须声明：没这一行，Activity.request() 起不来，岛上什么都不显示。 -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>
