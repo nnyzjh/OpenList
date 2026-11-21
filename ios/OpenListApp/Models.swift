@@ -136,3 +136,22 @@ enum FileTypeHelper {
         return f.string(fromByteCount: bytes)
     }
 }
+
+// MARK: - AppKey（应用密钥）
+// 对应 core 里的 model.MediaAppKey。列表接口不返回 secret 明文，只给前缀；
+// 明文只在新建时返回一次（CreatedAppKeyData.key），之后要看明文走 Go 的
+// RevealAppKey（密钥是 AES-GCM 加密存着的，密钥稳定，能再解密出来）。
+struct AppKeyData: Codable, Identifiable {
+    var id: Int = 0
+    var name: String = ""
+    var prefix: String = ""
+    var created_at: String = ""
+    var last_used_at: String?
+}
+
+struct CreatedAppKeyData: Decodable {
+    var id: Int = 0
+    var name: String = ""
+    var prefix: String = ""
+    var key: String = ""
+}

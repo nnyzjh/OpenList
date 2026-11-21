@@ -179,6 +179,32 @@ final class APIClient: ObservableObject {
         let _: EmptyData = try await postJSON("/api/admin/user/update", copy)
     }
 
+    // MARK: - 应用密钥（Emby / Subsonic 用）
+
+    /// GET /api/me/appkey/list → [AppKeyData]（不含明文，只给前缀）。
+    func listAppKeys() async throws -> [AppKeyData] {
+        try await get("/api/me/appkey/list")
+    }
+
+    /// POST /api/me/appkey/create {"name"} → {id, name, prefix, key}。
+    /// 明文 key 只在这里返回一次，调用方拿到就让用户复制保存。
+    func createAppKey(name: String) async throws -> CreatedAppKeyData {
+        try await postJSON("/api/me/appkey/create", ["name": name])
+    }
+
+    /// POST /api/me/appkey/delete?id=N —— 删一个密钥。
+    func deleteAppKey(id: Int) async throws {
+        var comps = URLComponents(url: Self.baseURL.appendingPathComponent("/api/me/appkey/delete"), resolvingAgainstBaseURL: false)!
+        comps.queryItems = [URLQueryItem(name: "id", value: String(id))]
+        var req = URLRequest(url: comps.url!)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token {
+            req.setValue(token, forHTTPHeaderField: "Authorization")
+        }
+        let _: EmptyData = try await send(req)
+    }
+
     // MARK: - 设置与版本
 
     /// GET /api/public/settings → {"version": "v4.2.9 (Commit: ...) - Frontend: ... - Build at: ...", ...}

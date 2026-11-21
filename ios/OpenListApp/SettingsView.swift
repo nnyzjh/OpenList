@@ -15,6 +15,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                if appState.developerMode {
+                    Section {
+                        Text("开发者模式已开启：应用密钥等删除按钮已显示。再长按底部“设置”图标可关闭。")
+                            .font(.footnote)
+                            .foregroundColor(.orange)
+                    }
+                }
                 Section("通用") {
                     Toggle("后台运行", isOn: $appState.backgroundKeepAlive)
                     Text("开启后服务常驻后台，息屏也可访问服务。切后台时先把数据库落盘（挂载的账号密码/密钥/token/cookie 都写进 data.db），之后就算不小心把 App 从后台划掉，挂载和账号也都在，不会丢。会多耗电，iOS 仍可能挂起 App。")
@@ -32,11 +39,6 @@ struct SettingsView: View {
                     Text("App 冷启动时自动启动服务。")
                         .font(.footnote)
                         .foregroundColor(.secondary)
-                }
-                .onChange(of: appState.backgroundKeepAlive) { newValue in
-                    if newValue {
-                        appState.requestNotificationPermission()
-                    }
                 }
 
                 Section("管理员账号") {
