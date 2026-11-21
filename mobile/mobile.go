@@ -23,6 +23,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/cmd/flags"
 	"github.com/OpenListTeam/OpenList/v4/internal/bootstrap"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
+	"github.com/OpenListTeam/OpenList/v4/internal/db"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 )
 
@@ -92,6 +93,45 @@ func ResetAdminPassword(newPassword string) string {
 		return err.Error()
 	}
 	admin.SetPassword(newPassword)
+	if err := op.UpdateUser(admin); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// CheckpointDB flushes the database to disk: it checkpoints the SQLite
+// WAL (write-ahead log) into the main data.db file and truncates the WAL.
+// Call it when the app moves to the background. After that, even if the
+// app is swiped away from the app switcher (force-killed) and never gets
+// a chance to shut down cleanly, all committed data is already in
+// data.db and survives. Without this, data that only lives in the WAL
+// could be lost if the app is killed at the wrong moment.
+// Call only after Init (the database must be open).
+// Returns "" on success, or an error message on failure.
+// (If the database is not in WAL mode, the checkpoint is a harmless no-op.)
+func CheckpointDB() string {
+	gdb := db.GetDb()
+	if gdb == nil {
+		return "database not open"
+	}
+	if err := gdb.Exec("PRAGMA wal_checkpoint(TRUNCATE)").Error; err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// SetAdminUsername sets the admin user's username to the given value.
+// The admin is looked up by role (not by name), so renaming is safe and
+// the account keeps its ID, role and storages. It needs no password and
+// touches nothing else (no data is wiped).
+// Call only after Init (the database must be open).
+// Returns "" on success, or an error message on failure.
+func SetAdminUsername(newUsername string) string {
+	admin, err := op.GetAdmin()
+	if err != nil {
+		return err.Error()
+	}
+	admin.Username = newUsername
 	if err := op.UpdateUser(admin); err != nil {
 		return err.Error()
 	}

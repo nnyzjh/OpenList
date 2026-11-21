@@ -2,9 +2,10 @@ import Foundation
 import Security
 
 // 管理员密码只存在 iOS 钥匙串里，不写进任何文件、不上传。
-// 首次启动随机生成一个，之后每次启动都用同一个；
-// 丢了钥匙串（比如换手机没迁钥匙串）就等于丢了密码，
-// 只能在设置里抹掉全部数据重来。
+// 首次启动默认是 "admin"（和用户名 admin 一样），之后每次启动都用同一个；
+// 用户在设置里改了就用改后的。丢了钥匙串（比如换手机没迁钥匙串）
+// 就等于丢了密码，只能在设置里抹掉全部数据重来。
+// 注意：service/account 不能改，否则旧钥匙串里的密码就找不到了。
 enum KeychainHelper {
     private static let service = "com.openlist.ios.admin"
     private static let account = "admin"
@@ -50,18 +51,12 @@ enum KeychainHelper {
         return status == errSecSuccess
     }
 
-    /// 取不到就随机生成一个并存起来。
+    /// 取不到就用默认密码 "admin" 并存起来（初始状态就是 admin / admin）。
     static func getOrCreateAdminPassword() -> String {
         if let existing = loadAdminPassword(), !existing.isEmpty {
             return existing
         }
-        let password = randomPassword(length: 16)
-        saveAdminPassword(password)
-        return password
-    }
-
-    private static func randomPassword(length: Int) -> String {
-        let chars = Array("abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789")
-        return String((0..<length).map { _ in chars[Int.random(in: 0..<chars.count)] })
+        saveAdminPassword("admin")
+        return "admin"
     }
 }

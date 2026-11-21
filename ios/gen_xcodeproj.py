@@ -344,11 +344,11 @@ common_target = {
     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
     "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
     "CODE_SIGN_STYLE": "Automatic",
-    "CURRENT_PROJECT_VERSION": "4",
+    "CURRENT_PROJECT_VERSION": "5",
     "FRAMEWORK_SEARCH_PATHS": '("$(inherited)", "$(PROJECT_DIR)")',
     "INFOPLIST_FILE": "Info.plist",
     "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks")',
-    "MARKETING_VERSION": "4.2.9.4",
+    "MARKETING_VERSION": "4.2.9.5",
     # Go runtime (OpenListCore) calls res_9_ninit/res_9_nsearch/res_9_nclose
     # for DNS; on iOS those live in libresolv. Without -lresolv the link
     # fails with "Undefined symbols ... _res_9_nclose" etc.
@@ -401,18 +401,8 @@ section("XCConfigurationList", [
 ])
 
 # ---------------------------------------------------------------- assemble
-header = """// !$*UTF8*$!
-{
-	archiveVersion = 1;
-	classes = {
-	};
-	objectVersion = 56;
-	objects = {
-"""
-footer = f"""\t}};
-\trootObject = {PROJECT} /* Project object */;
-}}
-"""
+header = """// !$*UTF8*$!\n{\n\tarchiveVersion = 1;\n\tclasses = {\n\t};\n\tobjectVersion = 56;\n\tobjects = {\n"""
+footer = f"""\t}};\n\trootObject = {PROJECT} /* Project object */;\n}}\n"""
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w") as f:
