@@ -58,12 +58,12 @@ struct WebDAVView: View {
                 }
 
                 Section("账号") {
-                    CopyRow(label: "用户名", value: "admin", copied: $copied)
-                    CopyRow(label: "密码", value: appState.adminPassword, copied: $copied, secret: true)
+                    CopyRow(label: "用户名", value: appState.adminUsername, copied: $copied)
+                    CopyRow(label: "密码", value: appState.adminPassword, copied: $copied)
                 }
 
                 Section {
-                    Text("在 VidHub / Infuse 里添加 WebDAV 源，填上面的地址和账号就能用。注意：切到播放器后本 App 到了后台，服务会停，播放器就连不上——去设置里打开“后台运行”，服务会多活一会儿；iOS 仍可能挂起 App，这是系统限制。")
+                    Text("在 VidHub / Infuse 里添加 WebDAV 源，填上面的地址和账号就能用。密码明文显示，因为这是你自己的本机服务。注意：切到播放器后本 App 到了后台；开着“后台运行”服务会多活一会儿，自动停止设了时间才会停。停服务也不会丢数据，数据一直在手机上。")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -96,14 +96,11 @@ struct WebDAVView: View {
     }
 }
 
-// 一行“值 + 复制按钮”。secret 时默认打码显示，点眼睛才看明文。
+// 一行“值 + 复制按钮”。密码明文显示，因为这是用户自己的本机服务。
 struct CopyRow: View {
     let label: String
     let value: String
     @Binding var copied: String?
-    var secret: Bool = false
-
-    @State private var revealed: Bool = false
 
     var body: some View {
         HStack {
@@ -111,20 +108,12 @@ struct CopyRow: View {
                 Text(label)
                     .font(.footnote)
                     .foregroundColor(.secondary)
-                Text(secret && !revealed ? String(repeating: "•", count: min(value.count, 12)) : value)
+                Text(value)
                     .font(.footnote)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
             Spacer()
-            if secret {
-                Button {
-                    revealed.toggle()
-                } label: {
-                    Image(systemName: revealed ? "eye.slash" : "eye")
-                }
-                .buttonStyle(.plain)
-            }
             Button {
                 UIPasteboard.general.string = value
                 copied = label
