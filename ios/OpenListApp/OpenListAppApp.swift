@@ -10,7 +10,9 @@ struct OpenListAppApp: App {
             ContentView()
                 .environmentObject(appState)
                 .task {
-                    await appState.startup()
+                    // 自动运行开着（默认）就走启动流程；关着就停在 idle，
+                    // 等用户在首页点“启动服务”。
+                    await appState.startIfNeeded()
                 }
         }
         .onChange(of: scenePhase) { phase in
