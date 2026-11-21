@@ -58,11 +58,11 @@ func Start() {
 	bootstrap.Start()
 }
 
-// Shutdown stops all servers gracefully (5s timeout) and closes the
-// database. Call when the app moves to the background.
+// Shutdown stops all servers gracefully (5s timeout) but keeps the
+// database open, so a later Start() can read it again.
+// Call when the app moves to the background.
 func Shutdown() {
 	bootstrap.Shutdown(5 * time.Second)
-	cmd.Release()
 }
 
 // IsRunning reports whether the HTTP server is currently running.
