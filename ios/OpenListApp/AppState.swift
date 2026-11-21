@@ -25,7 +25,14 @@ final class AppState: ObservableObject {
 
     /// 后台运行（保活）开关，默认关。开着时切后台不立即停服，
     /// 改放无声音频 + 发一条通知；关着就按老样子切后台停服务。
-    @AppStorage("backgroundKeepAlive") var backgroundKeepAlive = false
+    /// 存在 UserDefaults 里。注意：不要用 @AppStorage —— 它是 SwiftUI 的
+    /// 属性包装器，放在 ObservableObject 里冷启动会闪退；这里用
+    /// @Published + UserDefaults 手动同步（启动时读一次、改了就存）。
+    @Published var backgroundKeepAlive: Bool = UserDefaults.standard.bool(forKey: "backgroundKeepAlive") {
+        didSet {
+            UserDefaults.standard.set(backgroundKeepAlive, forKey: "backgroundKeepAlive")
+        }
+    }
 
     private let api = APIClient.shared
     private var started = false

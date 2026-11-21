@@ -13,6 +13,13 @@ struct SettingsView: View {
                         .font(.footnote)
                         .textSelection(.enabled)
                     LabeledRow(label: "核心版本", value: ServerBridge.coreVersion)
+                    LabeledRow(
+                        label: "壳版本",
+                        value: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
+                            + " ("
+                            + (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?")
+                            + ")"
+                    )
                 }
 
                 Section("服务") {
