@@ -91,15 +91,16 @@ final class APIClient: ObservableObject {
         }
     }
 
-    /// 用钥匙串里的管理员密码重新登录一次（401 时自动恢复 token 用）。
+    /// 用存着的管理员账号重新登录一次（401 时自动恢复 token 用）。
     /// 直接发 HTTP 请求，不走 send()，避免递归。成功返回 true，
-    /// 失败返回 false（比如密码在管理页被改了，钥匙串里还是旧密码）。
+    /// 失败返回 false（比如账号在管理页被改了，存着的还是旧账号）。
     private func reauth() async -> Bool {
         guard let password = KeychainHelper.loadAdminPassword(), !password.isEmpty else { return false }
+        let username = UserDefaults.standard.string(forKey: "adminUsername") ?? "admin"
         var req = URLRequest(url: Self.baseURL.appendingPathComponent("/api/auth/login"))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONEncoder().encode(["username": "admin", "password": password])
+        req.httpBody = try? JSONEncoder().encode(["username": username, "password": password])
         do {
             let (data, _) = try await session.data(for: req)
             let envelope = try decoder.decode(APIResponse<TokenData>.self, from: data)
