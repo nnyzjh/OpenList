@@ -14,6 +14,7 @@ final class AppState: ObservableObject {
         case starting(String)   // 正在启动，带一句进度
         case ready
         case failed(String)     // 启动失败，带原因
+        case idle               // 没启动（自动运行关着），等用户点“启动服务”
     }
 
     @Published var phase: Phase = .starting("正在启动服务…")
@@ -21,6 +22,14 @@ final class AppState: ObservableObject {
     @Published var versionString: String = ""
     @Published var storages: [StorageData] = []
     @Published var adminPassword: String = ""
+
+    /// 管理员用户名，默认 "admin"，能改。存在 UserDefaults 里。
+    /// 用户名和密码都能改，不强制是 admin；初始状态是 admin / admin。
+    @Published var adminUsername: String = UserDefaults.standard.string(forKey: "adminUsername") ?? "admin" {
+        didSet {
+            UserDefaults.standard.set(adminUsername, forKey: "adminUsername")
+        }
+    }
     @Published var lastError: String?
 
     /// 后台运行（保活）开关，默认关。开着时切后台不立即停服，
@@ -34,12 +43,60 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// 自动停止：切到后台后 X 小时没用就自动停服务（只停服务，不删数据）。
+    /// 0 = 不自动停止（默认）。存在 UserDefaults 里。
+    /// 注意：只在后台运行（保活）开着时才有意义 —— 保活关着切后台本来就停服务。
+    @Published var autoStopHours: Int = UserDefaults.standard.integer(forKey: "autoStopHours") {
+        didSet {
+            UserDefaults.standard.set(autoStopHours, forKey: "autoStopHours")
+        }
+    }
+
+    /// 自动运行：冷启动时自动启动服务。默认开（就是现在的行为）。
+    /// 关掉后打开 App 不会自动启动，要在首页点“启动服务”。
+    @Published var autoRun: Bool = UserDefaults.standard.object(forKey: "autoRun") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(autoRun, forKey: "autoRun")
+        }
+    }
+
+    /// 自动停止的计时任务。切后台时开始计时，X 小时后停服务；
+    /// 回前台就取消。只在保活开着时才计时（保活关着切后台本来就停服务）。
+    private var autoStopTask: Task<Void, Never>?
+
+    private func scheduleAutoStopIfNeeded() {
+        autoStopTask?.cancel()
+        autoStopTask = nil
+        guard backgroundKeepAlive, autoStopHours > 0, ServerBridge.isRunning else { return }
+        let hours = autoStopHours
+        autoStopTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(hours) * 3_600_000_000_000)
+            guard !Task.isCancelled else { return }
+            self.shutdown()
+        }
+    }
+
+    private func cancelAutoStop() {
+        autoStopTask?.cancel()
+        autoStopTask = nil
+    }
+
     private let api = APIClient.shared
     private var started = false
     private let audioKeeper = SilentAudioKeeper()
 
     static let localMountPath = "/local"
     static let localRemark = "本地文件"
+
+    /// 冷启动入口：自动运行开着就走启动流程；关着就停在 idle，
+    /// 等用户在首页点“启动服务”。由 OpenListAppApp 在启动时调。
+    func startIfNeeded() async {
+        if autoRun {
+            await startup()
+        } else {
+            phase = .idle
+        }
+    }
 
     // MARK: - 启动
 
@@ -74,12 +131,12 @@ final class AppState: ObservableObject {
             phase = .starting("正在检查管理员账号…")
             let initialized = try await api.initStatus()
             if !initialized {
-                try? await api.initSetup(username: "admin", password: password)
+                try? await api.initSetup(username: adminUsername, password: password)
             }
 
             // 5. 登录，拿到 token。
             phase = .starting("正在登录…")
-            _ = try await api.login(username: "admin", password: password)
+            _ = try await api.login(username: adminUsername, password: password)
 
             // 6. 读当前用户（权限位）和版本号。
             user = try await api.me()
@@ -96,15 +153,21 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// 切到后台：保活开着且服务在跑，就不立即停服 ——
+    /// 切到后台：先把数据库刷到磁盘（WAL 写进 data.db），
+    /// 这样之后就算 App 被从后台划掉（强制杀掉），数据也已经落盘，不会丢。
+    /// 再看保活：保活开着且服务在跑，就不立即停服 ——
     /// 放无声音频让 App 多活一会儿，并发一条“服务正在运行中”通知；
     /// 保活关着（默认）就按老样子停服务。注意：即便保活开着，
     /// iOS 仍可能因内存压力或音频中断把 App 挂起，保活不是 100% 可靠。
+    /// 保活开着时如果设了自动停止，开始计时，X 小时后停服务（不删数据）。
     func onEnterBackground() {
         guard started else { return }
+        // 保数据：先落盘，再决定停不停服务。
+        _ = ServerBridge.checkpointDB()
         if backgroundKeepAlive && ServerBridge.isRunning {
             audioKeeper.start()
             postRunningNotification()
+            scheduleAutoStopIfNeeded()
         } else {
             audioKeeper.stop()
             clearRunningNotification()
@@ -112,10 +175,12 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// 回到前台：先停无声音频、清掉那条通知，再走原来的恢复流程。
+    /// 回到前台：先停无声音频、清掉那条通知、取消自动停止计时，
+    /// 再走原来的恢复流程。
     func onEnterForeground() async {
         audioKeeper.stop()
         clearRunningNotification()
+        cancelAutoStop()
         await resume()
     }
 
@@ -136,7 +201,7 @@ final class AppState: ObservableObject {
         }
         // token 可能过期了，重新登录一次最稳；失败了就留在原状态。
         if let password = KeychainHelper.loadAdminPassword() {
-            if (try? await api.login(username: "admin", password: password)) != nil {
+            if (try? await api.login(username: adminUsername, password: password)) != nil {
                 user = try? await api.me()
             }
         }
@@ -146,8 +211,12 @@ final class AppState: ObservableObject {
     }
 
     func shutdown() {
+        cancelAutoStop()
         audioKeeper.stop()
         clearRunningNotification()
+        // 保数据：停服务前先落盘（自动停止走到这里时也要刷一次，
+        // 因为后台运行期间服务可能又写了新数据）。
+        _ = ServerBridge.checkpointDB()
         ServerBridge.stop()
     }
 
@@ -230,51 +299,43 @@ final class AppState: ObservableObject {
 
     // MARK: - 管理员密码
 
-    /// 在管理页改过 admin 密码后，在 App 里填入新密码同步：
-    /// 存钥匙串 → 更新 WebDAV 页显示的密码 → 清掉旧 token → 重新登录。
-    /// 成功返回 true；密码不对返回 false（原因写在 lastError 里）。
-    func updateAdminPassword(_ newPassword: String) async -> Bool {
-        let trimmed = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        KeychainHelper.saveAdminPassword(trimmed)
-        adminPassword = trimmed
+    /// 设置管理员账号（用户名和密码都能改，不删任何数据）：
+    /// 用户名和密码直接改 core 里的 admin，不需要旧密码。
+    /// 改完同时存起来（用户名进 UserDefaults，密码进钥匙串）、更新显示、
+    /// 重新登录。App、管理页、WebDAV 用的都是这一个账号。
+    /// 用户名没变就不改用户名，密码没变就不改密码。
+    /// 只有设置和登录都成功才返回 true；登录如果撞上 429 锁定，
+    /// 账号其实已经改好了，lastError 里会说明等 5 分钟后再重试。
+    func setAdminAccount(username: String, password: String) async -> Bool {
+        let newUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newUsername.isEmpty, !newPassword.isEmpty else { return false }
+        if newUsername != adminUsername {
+            let errMsg = ServerBridge.setAdminUsername(newUsername)
+            guard errMsg.isEmpty else {
+                lastError = errMsg
+                return false
+            }
+            adminUsername = newUsername
+        }
+        if newPassword != adminPassword {
+            let errMsg = ServerBridge.resetAdminPassword(newPassword)
+            guard errMsg.isEmpty else {
+                lastError = errMsg
+                return false
+            }
+            KeychainHelper.saveAdminPassword(newPassword)
+            adminPassword = newPassword
+        }
         api.token = nil
         do {
-            _ = try await api.login(username: "admin", password: trimmed)
+            _ = try await api.login(username: adminUsername, password: adminPassword)
             user = try? await api.me()
             storages = (try? await api.listStorages()) ?? storages
             lastError = nil
             return true
         } catch {
-            lastError = error.localizedDescription
-            return false
-        }
-    }
-
-    /// 重置管理员密码（不删任何数据）：直接改 core 里 admin 的密码，
-    /// 不需要旧密码。用于在管理页改密码后把自己锁在外面、
-    /// 连旧密码都不认的时候。成功后同时存进钥匙串、更新显示、重新登录。
-    /// 只有重置和登录都成功才返回 true；登录如果撞上 429 锁定，
-    /// 密码其实已经改好了，lastError 里会说明等 5 分钟后再重试。
-    func resetAdminPassword(_ newPassword: String) async -> Bool {
-        let trimmed = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        let errMsg = ServerBridge.resetAdminPassword(trimmed)
-        guard errMsg.isEmpty else {
-            lastError = errMsg
-            return false
-        }
-        KeychainHelper.saveAdminPassword(trimmed)
-        adminPassword = trimmed
-        api.token = nil
-        do {
-            _ = try await api.login(username: "admin", password: trimmed)
-            user = try? await api.me()
-            storages = (try? await api.listStorages()) ?? storages
-            lastError = nil
-            return true
-        } catch {
-            lastError = "密码已重置。登录失败：" + error.localizedDescription + "（如果是 429 锁定，等 5 分钟后再点重试）"
+            lastError = "账号已设置。登录失败：" + error.localizedDescription + "（如果是 429 锁定，等 5 分钟后再点重试）"
             return false
         }
     }
