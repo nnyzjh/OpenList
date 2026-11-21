@@ -33,7 +33,21 @@ SWIFT_FILES = [
     "FileDetailView.swift",
     "WebDAVView.swift",
     "SettingsView.swift",
+    "EmbyView.swift",
+    "OpenListActivityAttributes.swift",
+    "LiveActivityManager.swift",
+    "TabBarLongPress.swift",
+    "AppIntents.swift",
 ]
+
+# Widget Extension（灵动岛 Live Activity 的界面）。
+# 扩展的源文件在 ios/OpenListLiveActivity/，
+# 共享的 OpenListActivityAttributes.swift 在主 App 目录里，
+# 两个 target 都编它（同一个类型，扩展才能认出主 App 的活动）。
+EXT_SWIFT_FILES = [
+    "OpenListLiveActivity.swift",
+]
+EXT_INFOPLIST = "Info.plist"
 
 
 def obj_id(seed: str) -> str:
@@ -66,6 +80,18 @@ CONFIG_PROJECT_DEBUG = I("XCBuildConfiguration:project:Debug")
 CONFIG_PROJECT_RELEASE = I("XCBuildConfiguration:project:Release")
 CONFIG_TARGET_DEBUG = I("XCBuildConfiguration:target:Debug")
 CONFIG_TARGET_RELEASE = I("XCBuildConfiguration:target:Release")
+# Widget Extension（灵动岛 Live Activity）
+TARGET_EXT = I("PBXNativeTarget:OpenListLiveActivity")
+PRODUCT_EXT = I("PBXFileReference:OpenListLiveActivity.appex")
+GROUP_EXT = I("PBXGroup:OpenListLiveActivity")
+PHASE_EXT_SOURCES = I("PBXSourcesBuildPhase:OpenListLiveActivity")
+PHASE_EXT_FRAMEWORKS = I("PBXFrameworksBuildPhase:OpenListLiveActivity")
+PHASE_EMBED_EXT = I("PBXCopyFilesBuildPhase:Embed App Extensions")
+DEPENDENCY_EXT = I("PBXTargetDependency:OpenListLiveActivity")
+EXT_INFOPLIST_REF = I("PBXFileReference:OpenListLiveActivity:Info.plist")
+CONFIG_LIST_TARGET_EXT = I("XCConfigurationList:target:OpenListLiveActivity")
+CONFIG_TARGET_EXT_DEBUG = I("XCBuildConfiguration:target:OpenListLiveActivity:Debug")
+CONFIG_TARGET_EXT_RELEASE = I("XCBuildConfiguration:target:OpenListLiveActivity:Release")
 
 build_files = {}
 for f in SWIFT_FILES:
@@ -73,10 +99,17 @@ for f in SWIFT_FILES:
 build_files["xcframework"] = I("PBXBuildFile:OpenListCore.xcframework")
 build_files["xcframework_embed"] = I("PBXBuildFile:OpenListCore.xcframework:embed")
 build_files["assets"] = I("PBXBuildFile:Assets.xcassets")
+# Widget Extension 的源文件（扩展自己的 + 共享的 ActivityAttributes）。
+for f in EXT_SWIFT_FILES:
+    build_files["ext:" + f] = I("PBXBuildFile:OpenListLiveActivity:" + f)
+build_files["ext:shared_attributes"] = I("PBXBuildFile:OpenListLiveActivity:OpenListActivityAttributes.swift")
+build_files["ext_embed"] = I("PBXBuildFile:OpenListLiveActivity.appex:embed")
 
 file_refs = {}
 for f in SWIFT_FILES:
     file_refs[f] = I("PBXFileReference:" + f)
+for f in EXT_SWIFT_FILES:
+    file_refs["ext:" + f] = I("PBXFileReference:OpenListLiveActivity:" + f)
 
 # ---------------------------------------------------------------- helpers
 def q(s: str) -> str:
@@ -98,6 +131,11 @@ for f in SWIFT_FILES:
 body.append(f"\t\t{build_files['xcframework']} /* OpenListCore.xcframework in Frameworks */ = {{isa = PBXBuildFile; fileRef = {XCFRAMEWORK} /* OpenListCore.xcframework */; }};")
 body.append(f"\t\t{build_files['xcframework_embed']} /* OpenListCore.xcframework in Embed Frameworks */ = {{isa = PBXBuildFile; fileRef = {XCFRAMEWORK} /* OpenListCore.xcframework */; settings = {{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }}; }};")
 body.append(f"\t\t{build_files['assets']} /* Assets.xcassets in Resources */ = {{isa = PBXBuildFile; fileRef = {ASSETS} /* Assets.xcassets */; }};")
+# Widget Extension：自己的源文件 + 共享的 ActivityAttributes（主 App 目录里的同一个文件）。
+for f in EXT_SWIFT_FILES:
+    body.append(f"\t\t{build_files['ext:' + f]} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {file_refs['ext:' + f]} /* {f} */; }};")
+body.append(f"\t\t{build_files['ext:shared_attributes']} /* OpenListActivityAttributes.swift in Sources */ = {{isa = PBXBuildFile; fileRef = {file_refs['OpenListActivityAttributes.swift']} /* OpenListActivityAttributes.swift */; }};")
+body.append(f"\t\t{build_files['ext_embed']} /* OpenListLiveActivity.appex in Embed App Extensions */ = {{isa = PBXBuildFile; fileRef = {PRODUCT_EXT} /* OpenListLiveActivity.appex */; settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};")
 section("PBXBuildFile", body)
 
 # ---------------------------------------------------------------- PBXFileReference
@@ -108,6 +146,11 @@ body.append(f"\t\t{XCFRAMEWORK} /* OpenListCore.xcframework */ = {{isa = PBXFile
 body.append(f"\t\t{ASSETS} /* Assets.xcassets */ = {{isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = \"<group>\"; }};")
 body.append(f"\t\t{INFOPLIST} /* Info.plist */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = \"<group>\"; }};")
 body.append(f"\t\t{PRODUCT} /* OpenListApp.app */ = {{isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenListApp.app; sourceTree = BUILT_PRODUCTS_DIR; }};")
+# Widget Extension 的源文件、Info.plist 和产物（.appex）。
+for f in EXT_SWIFT_FILES:
+    body.append(f"\t\t{file_refs['ext:' + f]} /* {f} */ = {{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {f}; sourceTree = \"<group>\"; }};")
+body.append(f"\t\t{EXT_INFOPLIST_REF} /* Info.plist */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = {EXT_INFOPLIST}; sourceTree = \"<group>\"; }};")
+body.append(f"\t\t{PRODUCT_EXT} /* OpenListLiveActivity.appex */ = {{isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = OpenListLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; }};")
 section("PBXFileReference", body)
 
 # ---------------------------------------------------------------- PBXCopyFilesBuildPhase (Embed Frameworks)
@@ -126,6 +169,17 @@ section("PBXCopyFilesBuildPhase", [
     "\t\t\tname = \"Embed Frameworks\";",
     "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
     "\t\t};",
+    f"\t\t{PHASE_EMBED_EXT} /* Embed App Extensions */ = {{",
+    "\t\t\tisa = PBXCopyFilesBuildPhase;",
+    "\t\t\tbuildActionMask = 2147483647;",
+    "\t\t\tdstPath = \"\";",
+    "\t\t\tdstSubfolderSpec = 13;",
+    "\t\t\tfiles = (",
+    f"\t\t\t\t{build_files['ext_embed']} /* OpenListLiveActivity.appex in Embed App Extensions */,",
+    "\t\t\t);",
+    "\t\t\tname = \"Embed App Extensions\";",
+    "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+    "\t\t};",
 ])
 
 # ---------------------------------------------------------------- PBXFrameworksBuildPhase
@@ -135,6 +189,15 @@ section("PBXFrameworksBuildPhase", [
     "\t\t\tbuildActionMask = 2147483647;",
     "\t\t\tfiles = (",
     f"\t\t\t\t{build_files['xcframework']} /* OpenListCore.xcframework in Frameworks */,",
+    "\t\t\t);",
+    "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+    "\t\t};",
+    # Widget Extension 只用系统框架（WidgetKit / ActivityKit），
+    # Swift import 时自动链接，不用在这里加。
+    f"\t\t{PHASE_EXT_FRAMEWORKS} /* Frameworks */ = {{",
+    "\t\t\tisa = PBXFrameworksBuildPhase;",
+    "\t\t\tbuildActionMask = 2147483647;",
+    "\t\t\tfiles = (",
     "\t\t\t);",
     "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
     "\t\t};",
@@ -151,6 +214,7 @@ section("PBXGroup", [
     "\t\t\tisa = PBXGroup;",
     "\t\t\tchildren = (",
     f"\t\t\t\t{GROUP_APP} /* OpenListApp */,",
+    f"\t\t\t\t{GROUP_EXT} /* OpenListLiveActivity */,",
     f"\t\t\t\t{XCFRAMEWORK} /* OpenListCore.xcframework */,",
     f"\t\t\t\t{GROUP_PRODUCTS} /* Products */,",
     "\t\t\t);",
@@ -170,10 +234,23 @@ section("PBXGroup", [
     "\t\t\tname = OpenListApp;",
     "\t\t\tsourceTree = \"<group>\";",
     "\t\t};",
+    # Widget Extension 的组：源文件在 ios/OpenListLiveActivity/，
+    # 相对项目目录（ios/OpenListApp/）是 ../OpenListLiveActivity。
+    f"\t\t{GROUP_EXT} /* OpenListLiveActivity */ = {{",
+    "\t\t\tisa = PBXGroup;",
+    "\t\t\tchildren = (",
+    f"\t\t\t\t{file_refs['ext:OpenListLiveActivity.swift']} /* OpenListLiveActivity.swift */,",
+    f"\t\t\t\t{EXT_INFOPLIST_REF} /* Info.plist */,",
+    "\t\t\t);",
+    "\t\t\tname = OpenListLiveActivity;",
+    "\t\t\tpath = ../OpenListLiveActivity;",
+    "\t\t\tsourceTree = \"<group>\";",
+    "\t\t};",
     f"\t\t{GROUP_PRODUCTS} /* Products */ = {{",
     "\t\t\tisa = PBXGroup;",
     "\t\t\tchildren = (",
     f"\t\t\t\t{PRODUCT} /* OpenListApp.app */,",
+    f"\t\t\t\t{PRODUCT_EXT} /* OpenListLiveActivity.appex */,",
     "\t\t\t);",
     "\t\t\tname = Products;",
     "\t\t\tsourceTree = \"<group>\";",
@@ -184,6 +261,11 @@ section("PBXGroup", [
 sources_files = ",\n".join(
     f"\t\t\t\t{build_files[f]} /* {f} in Sources */" for f in SWIFT_FILES
 ) + ","
+# Widget Extension 的源文件：自己的 + 共享的 ActivityAttributes。
+ext_sources_files = ",\n".join(
+    [f"\t\t\t\t{build_files['ext:' + f]} /* {f} in Sources */" for f in EXT_SWIFT_FILES]
+    + [f"\t\t\t\t{build_files['ext:shared_attributes']} /* OpenListActivityAttributes.swift in Sources */"]
+) + ","
 section("PBXNativeTarget", [
     f"\t\t{TARGET} /* OpenListApp */ = {{",
     "\t\t\tisa = PBXNativeTarget;",
@@ -193,15 +275,53 @@ section("PBXNativeTarget", [
     f"\t\t\t\t{PHASE_FRAMEWORKS} /* Frameworks */,",
     f"\t\t\t\t{PHASE_RESOURCES} /* Resources */,",
     f"\t\t\t\t{PHASE_EMBED} /* Embed Frameworks */,",
+    f"\t\t\t\t{PHASE_EMBED_EXT} /* Embed App Extensions */,",
     "\t\t\t);",
     "\t\t\tbuildRules = (",
     "\t\t\t);",
     "\t\t\tdependencies = (",
+    f"\t\t\t\t{DEPENDENCY_EXT} /* PBXTargetDependency */,",
     "\t\t\t);",
     "\t\t\tname = OpenListApp;",
     f"\t\t\tproductName = OpenListApp;",
     f"\t\t\tproductReference = {PRODUCT} /* OpenListApp.app */;",
     "\t\t\tproductType = \"com.apple.product-type.application\";",
+    "\t\t};",
+    f"\t\t{TARGET_EXT} /* OpenListLiveActivity */ = {{",
+    "\t\t\tisa = PBXNativeTarget;",
+    "\t\t\tbuildConfigurationList = " + CONFIG_LIST_TARGET_EXT + " /* Build configuration list for PBXNativeTarget \"OpenListLiveActivity\" */;",
+    "\t\t\tbuildPhases = (",
+    f"\t\t\t\t{PHASE_EXT_SOURCES} /* Sources */,",
+    f"\t\t\t\t{PHASE_EXT_FRAMEWORKS} /* Frameworks */,",
+    "\t\t\t);",
+    "\t\t\tbuildRules = (",
+    "\t\t\t);",
+    "\t\t\tdependencies = (",
+    "\t\t\t);",
+    "\t\t\tname = OpenListLiveActivity;",
+    f"\t\t\tproductName = OpenListLiveActivity;",
+    f"\t\t\tproductReference = {PRODUCT_EXT} /* OpenListLiveActivity.appex */;",
+    "\t\t\tproductType = \"com.apple.product-type.app-extension\";",
+    "\t\t};",
+])
+
+# ---------------------------------------------------------------- PBXTargetDependency
+section("PBXTargetDependency", [
+    f"\t\t{DEPENDENCY_EXT} /* PBXTargetDependency */ = {{",
+    "\t\t\tisa = PBXTargetDependency;",
+    f"\t\t\ttarget = {TARGET_EXT} /* OpenListLiveActivity */;",
+    f"\t\t\ttargetProxy = {I('PBXContainerItemProxy:OpenListLiveActivity')} /* PBXContainerItemProxy */;",
+    "\t\t};",
+])
+
+# ---------------------------------------------------------------- PBXContainerItemProxy
+section("PBXContainerItemProxy", [
+    f"\t\t{I('PBXContainerItemProxy:OpenListLiveActivity')} /* PBXContainerItemProxy */ = {{",
+    "\t\t\tisa = PBXContainerItemProxy;",
+    f"\t\t\tcontainerPortal = {PROJECT} /* Project object */;",
+    "\t\t\tproxyType = 1;",
+    f"\t\t\tremoteGlobalIDString = {TARGET_EXT};",
+    f"\t\t\tremoteInfo = OpenListLiveActivity;",
     "\t\t};",
 ])
 
@@ -215,6 +335,9 @@ section("PBXProject", [
     "\t\t\t\tLastUpgradeCheck = 1600;",
     "\t\t\t\tTargetAttributes = {",
     f"\t\t\t\t\t{TARGET} = {{",
+    "\t\t\t\t\t\tCreatedOnToolsVersion = 16.0;",
+    "\t\t\t\t\t};",
+    f"\t\t\t\t\t{TARGET_EXT} = {{",
     "\t\t\t\t\t\tCreatedOnToolsVersion = 16.0;",
     "\t\t\t\t\t};",
     "\t\t\t\t};",
@@ -233,6 +356,7 @@ section("PBXProject", [
     "\t\t\tprojectRoot = \"\";",
     "\t\t\ttargets = (",
     f"\t\t\t\t{TARGET} /* OpenListApp */,",
+    f"\t\t\t\t{TARGET_EXT} /* OpenListLiveActivity */,",
     "\t\t\t);",
     "\t\t};",
 ])
@@ -256,6 +380,14 @@ section("PBXSourcesBuildPhase", [
     "\t\t\tbuildActionMask = 2147483647;",
     "\t\t\tfiles = (",
     sources_files,
+    "\t\t\t);",
+    "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+    "\t\t};",
+    f"\t\t{PHASE_EXT_SOURCES} /* Sources */ = {{",
+    "\t\t\tisa = PBXSourcesBuildPhase;",
+    "\t\t\tbuildActionMask = 2147483647;",
+    "\t\t\tfiles = (",
+    ext_sources_files,
     "\t\t\t);",
     "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
     "\t\t};",
@@ -344,11 +476,11 @@ common_target = {
     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
     "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
     "CODE_SIGN_STYLE": "Automatic",
-    "CURRENT_PROJECT_VERSION": "5",
+    "CURRENT_PROJECT_VERSION": "6",
     "FRAMEWORK_SEARCH_PATHS": '("$(inherited)", "$(PROJECT_DIR)")',
     "INFOPLIST_FILE": "Info.plist",
     "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks")',
-    "MARKETING_VERSION": "4.2.9.5",
+    "MARKETING_VERSION": "4.2.9.6",
     # Go runtime (OpenListCore) calls res_9_ninit/res_9_nsearch/res_9_nclose
     # for DNS; on iOS those live in libresolv. Without -lresolv the link
     # fails with "Undefined symbols ... _res_9_nclose" etc.
@@ -360,6 +492,25 @@ common_target = {
     "TARGETED_DEVICE_FAMILY": "1",
 }
 release_target = dict(common_target)
+
+# Widget Extension（灵动岛 Live Activity）的编译设置。
+# 部署目标 16.1：Live Activity / ActivityConfiguration 要 iOS 16.1+。
+# APPLICATION_EXTENSION_API_ONLY 必须开：扩展只能用扩展安全的 API。
+common_target_ext = {
+    "APPLICATION_EXTENSION_API_ONLY": "YES",
+    "CODE_SIGN_STYLE": "Automatic",
+    "CURRENT_PROJECT_VERSION": "6",
+    "INFOPLIST_FILE": "../OpenListLiveActivity/Info.plist",
+    "IPHONEOS_DEPLOYMENT_TARGET": "16.1",
+    "LD_RUNPATH_SEARCH_PATHS": '("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks")',
+    "MARKETING_VERSION": "4.2.9.6",
+    "PRODUCT_BUNDLE_IDENTIFIER": "com.openlist.ios.OpenListLiveActivity",
+    "PRODUCT_NAME": '"$(TARGET_NAME)"',
+    "SWIFT_EMBED_LIBRARIES_WITH_INSTALL": "YES",
+    "SWIFT_VERSION": "5.0",
+    "TARGETED_DEVICE_FAMILY": "1",
+}
+release_target_ext = dict(common_target_ext)
 
 def config_block(cfg_id, name, settings, comment):
     out = [f"\t\t{cfg_id} /* {comment} */ = {{"]
@@ -376,6 +527,8 @@ section("XCBuildConfiguration", [
     *config_block(CONFIG_PROJECT_RELEASE, "Release", release_project, "Release"),
     *config_block(CONFIG_TARGET_DEBUG, "Debug", common_target, "Debug"),
     *config_block(CONFIG_TARGET_RELEASE, "Release", release_target, "Release"),
+    *config_block(CONFIG_TARGET_EXT_DEBUG, "Debug", common_target_ext, "Debug"),
+    *config_block(CONFIG_TARGET_EXT_RELEASE, "Release", release_target_ext, "Release"),
 ])
 
 # ---------------------------------------------------------------- XCConfigurationList
@@ -398,11 +551,30 @@ section("XCConfigurationList", [
     "\t\t\tdefaultConfigurationIsVisible = 0;",
     "\t\t\tdefaultConfigurationName = Release;",
     "\t\t};",
+    f"\t\t{CONFIG_LIST_TARGET_EXT} /* Build configuration list for PBXNativeTarget \"OpenListLiveActivity\" */ = {{",
+    "\t\t\tisa = XCConfigurationList;",
+    "\t\t\tbuildConfigurations = (",
+    f"\t\t\t\t{CONFIG_TARGET_EXT_DEBUG} /* Debug */,",
+    f"\t\t\t\t{CONFIG_TARGET_EXT_RELEASE} /* Release */,",
+    "\t\t\t);",
+    "\t\t\tdefaultConfigurationIsVisible = 0;",
+    "\t\t\tdefaultConfigurationName = Release;",
+    "\t\t};",
 ])
 
 # ---------------------------------------------------------------- assemble
-header = """// !$*UTF8*$!\n{\n\tarchiveVersion = 1;\n\tclasses = {\n\t};\n\tobjectVersion = 56;\n\tobjects = {\n"""
-footer = f"""\t}};\n\trootObject = {PROJECT} /* Project object */;\n}}\n"""
+header = """// !$*UTF8*$!
+{
+\tarchiveVersion = 1;
+\tclasses = {
+\t};
+\tobjectVersion = 56;
+\tobjects = {
+"""
+footer = f"""\t}};
+\trootObject = {PROJECT} /* Project object */;
+}}
+"""
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w") as f:

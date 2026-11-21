@@ -95,18 +95,29 @@ struct ContentView: View {
                     .tabItem { Label("WebDAV", systemImage: "network") }
                 LogsView()
                     .tabItem { Label("日志", systemImage: "doc.text.fill") }
+                EmbyView()
+                    .tabItem { Label("Emby", systemImage: "play.rectangle.on.rectangle") }
                 SettingsView()
                     .tabItem { Label("设置", systemImage: "gearshape.fill") }
             }
+            .background(
+                TabBarLongPress(tabCount: 5, settingsIndex: 4) {
+                    Task { @MainActor in
+                        appState.developerMode.toggle()
+                    }
+                }
+            )
         }
     }
 }
 
 // 日志页：读 Documents/log/log.log 的尾部（文件可能很大，只读最后 64KB、
 // 最多 200 条）。core 没有现成的日志接口，所以直接读文件。
-// 日志是 logrus 格式：time="..." level=info msg="..."（文件里可能带 ANSI
-// 颜色码，先去掉再解析）。每条前面标出状态：error 红字、warn 橙字、
-// info/debug 灰字，一眼看出哪行出问题。堆栈等多行内容并到上一条下面。
+// 日志是 logrus 彩色短格式（ForceColors）：INFO[2026-11-21 12:00:00] 内容
+// （文件里带 ANSI 颜色码，先去掉再解析；级别是 INFO/WARN/ERRO/DEBU 等
+// 4 字母缩写，时间在方括号里）。也兼容 level=info 的键值格式。
+// 每条前面标出状态：error 红字、warn 橙字、info/debug 灰字，
+// 一眼看出哪行出问题。堆栈等多行内容并到上一条下面。
 struct LogsView: View {
     @State private var entries: [LogEntry] = []
     @State private var rawText = "正在读取日志…"
@@ -226,15 +237,22 @@ struct LogEntry: Identifiable {
         }
     }
 
-    /// 把日志行解析成条目。带 level= 的行开一条新记录，
-    /// 不带的（堆栈、Go 标准库输出）并到上一条的内容里。
+    /// 把日志行解析成条目。彩色短格式（INFO[时间] 内容）或 level= 的行
+    /// 开一条新记录，不带的（堆栈、Go 标准库输出）并到上一条的内容里。
     static func parse(lines: [String]) -> [LogEntry] {
         var out: [LogEntry] = []
         for raw in lines {
             let line = stripANSI(raw)
+            if line.trimmingCharacters(in: .whitespaces).isEmpty { continue }
+            // 彩色短格式优先：INFO[2026-11-21 12:00:00] 内容
+            if let entry = parseColored(line) {
+                out.append(entry)
+                continue
+            }
+            // 兜底：level=info 的键值格式
             guard let level = level(of: line) else {
                 // 续行：并到上一条。
-                if !out.isEmpty, !line.trimmingCharacters(in: .whitespaces).isEmpty {
+                if !out.isEmpty {
                     out[out.count - 1].message += "\n" + line
                 }
                 continue
@@ -246,6 +264,28 @@ struct LogEntry: Identifiable {
             ))
         }
         return out
+    }
+
+    /// 解析彩色短格式：INFO[2026-11-21 12:00:00] 内容
+    /// （logrus ForceColors，级别是 INFO/WARN/ERRO/DEBU 等缩写）。
+    private static func parseColored(_ line: String) -> LogEntry? {
+        guard let bracket = line.firstIndex(of: "["),
+              let close = line.firstIndex(of: "]"),
+              bracket < close else { return nil }
+        let levelText = String(line[line.startIndex..<bracket]).trimmingCharacters(in: .whitespaces)
+        let level: LogLevel
+        switch levelText {
+        case "INFO": level = .info
+        case "WARN", "WARNING": level = .warn
+        case "ERRO", "ERROR": level = .error
+        case "DEBU", "DEBUG": level = .debug
+        case "FATA", "FATAL", "PANI", "PANIC": level = .error
+        case "TRAC", "TRACE": level = .debug
+        default: return nil
+        }
+        let timestamp = String(line[line.index(after: bracket)..<close])
+        let message = String(line[line.index(after: close)...]).trimmingCharacters(in: .whitespaces)
+        return LogEntry(level: level, timestamp: timestamp, message: message.isEmpty ? line : message)
     }
 
     /// 去掉 ANSI 颜色码（logrus 写文件时也带颜色）。

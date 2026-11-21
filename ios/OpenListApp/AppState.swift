@@ -1,7 +1,6 @@
 import AVFoundation
 import Foundation
 import SwiftUI
-import UserNotifications
 
 // App 的总状态机：启动核心 → 登录 → 建好本地存储 → 就绪。
 // 全部网络操作都走 APIClient（即 core 的 HTTP API），
@@ -33,13 +32,22 @@ final class AppState: ObservableObject {
     @Published var lastError: String?
 
     /// 后台运行（保活）开关，默认关。开着时切后台不立即停服，
-    /// 改放无声音频 + 发一条通知；关着就按老样子切后台停服务。
+    /// 改放无声音频 + 在灵动岛常驻一个 Live Activity（不弹通知）；
+    /// 关着就按老样子切后台停服务。
     /// 存在 UserDefaults 里。注意：不要用 @AppStorage —— 它是 SwiftUI 的
     /// 属性包装器，放在 ObservableObject 里冷启动会闪退；这里用
     /// @Published + UserDefaults 手动同步（启动时读一次、改了就存）。
     @Published var backgroundKeepAlive: Bool = UserDefaults.standard.bool(forKey: "backgroundKeepAlive") {
         didSet {
             UserDefaults.standard.set(backgroundKeepAlive, forKey: "backgroundKeepAlive")
+        }
+    }
+
+    /// 开发者模式：长按设置页的齿轮图标开关。开着才显示删除按钮
+    ///（应用密钥的删除等）。默认关，存在 UserDefaults 里。
+    @Published var developerMode: Bool = UserDefaults.standard.bool(forKey: "developerMode") {
+        didSet {
+            UserDefaults.standard.set(developerMode, forKey: "developerMode")
         }
     }
 
@@ -83,7 +91,9 @@ final class AppState: ObservableObject {
 
     private let api = APIClient.shared
     private var started = false
-    private let audioKeeper = SilentAudioKeeper()
+    /// 无声音频保活器（单例）。App 切后台和快捷指令“延长常驻”共用同一个，
+    /// 避免两处各建一个播放器互相打架。
+    private let audioKeeper = SilentAudioKeeper.shared
 
     static let localMountPath = "/local"
     static let localRemark = "本地文件"
@@ -156,7 +166,8 @@ final class AppState: ObservableObject {
     /// 切到后台：先把数据库刷到磁盘（WAL 写进 data.db），
     /// 这样之后就算 App 被从后台划掉（强制杀掉），数据也已经落盘，不会丢。
     /// 再看保活：保活开着且服务在跑，就不立即停服 ——
-    /// 放无声音频让 App 多活一会儿，并发一条“服务正在运行中”通知；
+    /// 放无声音频让 App 多活一会儿，并在灵动岛常驻一个 Live Activity
+    ///（“OpenList 运行中”，不弹通知，点一下回 App，不停服务）；
     /// 保活关着（默认）就按老样子停服务。注意：即便保活开着，
     /// iOS 仍可能因内存压力或音频中断把 App 挂起，保活不是 100% 可靠。
     /// 保活开着时如果设了自动停止，开始计时，X 小时后停服务（不删数据）。
@@ -166,20 +177,20 @@ final class AppState: ObservableObject {
         _ = ServerBridge.checkpointDB()
         if backgroundKeepAlive && ServerBridge.isRunning {
             audioKeeper.start()
-            postRunningNotification()
+            startLiveActivity()
             scheduleAutoStopIfNeeded()
         } else {
             audioKeeper.stop()
-            clearRunningNotification()
+            endLiveActivity()
             shutdown()
         }
     }
 
-    /// 回到前台：先停无声音频、清掉那条通知、取消自动停止计时，
+    /// 回到前台：先停无声音频、结束灵动岛的 Live Activity、取消自动停止计时，
     /// 再走原来的恢复流程。
     func onEnterForeground() async {
         audioKeeper.stop()
-        clearRunningNotification()
+        endLiveActivity()
         cancelAutoStop()
         await resume()
     }
@@ -213,31 +224,35 @@ final class AppState: ObservableObject {
     func shutdown() {
         cancelAutoStop()
         audioKeeper.stop()
-        clearRunningNotification()
+        endLiveActivity()
         // 保数据：停服务前先落盘（自动停止走到这里时也要刷一次，
         // 因为后台运行期间服务可能又写了新数据）。
         _ = ServerBridge.checkpointDB()
         ServerBridge.stop()
     }
 
-    // MARK: - 通知（保活提示）
+    // MARK: - 灵动岛 Live Activity（保活常驻）
 
-    /// 保活开关打开时顺手要通知权限（只在开的时候问，不打扰）。
-    func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    /// 保活开始时在灵动岛常驻一个 Live Activity（“OpenList 运行中”）。
+    /// 点一下回 App，不停服务；停服务时结束。iOS 16.1+ 才有。
+    private func startLiveActivity() {
+        if #available(iOS 16.1, *) {
+            LiveActivityManager.start()
+        }
     }
 
-    /// 切后台保活时发一条“服务正在运行中”通知（固定 id，重复发会覆盖上一条）。
-    private func postRunningNotification() {
-        let content = UNMutableNotificationContent()
-        content.title = "OpenList"
-        content.body = "服务正在运行中"
-        let request = UNNotificationRequest(identifier: "openlist-service-running", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
+    private func endLiveActivity() {
+        if #available(iOS 16.1, *) {
+            LiveActivityManager.end()
+        }
     }
 
-    private func clearRunningNotification() {
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["openlist-service-running"])
+    /// 快捷指令“延长常驻”用的：重新延长一次保活。
+    /// 服务在跑就重开无声音频 + 刷新灵动岛的 Live Activity，
+    /// 让它继续常驻；服务没跑就不做（服务器开关只在 App 里）。
+    func extendKeepAlive() {
+        KeepAlive.extend()
+        scheduleAutoStopIfNeeded()
     }
 
     func retryStartup() async {
@@ -383,6 +398,9 @@ struct AppError: LocalizedError {
 // 和别的音频混音（.mixWithOthers），不打断正在放的音乐。
 // 注意：这只是“多活一会儿”，iOS 仍可能因内存压力或音频中断挂起 App。
 final class SilentAudioKeeper {
+    /// 单例：App 切后台和快捷指令“延长常驻”共用同一个播放器。
+    static let shared = SilentAudioKeeper()
+
     private var player: AVAudioPlayer?
     private var sessionConfigured = false
 
@@ -416,10 +434,11 @@ final class SilentAudioKeeper {
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
-    /// 生成 1 秒无声的 WAV（8kHz、单声道、16 位），全是 0 采样。
+    /// 生成 3 分钟无声的 WAV（8kHz、单声道、16 位），全是 0 采样。
+    /// 约一首歌的长度；播放器无限循环，3 分钟播完再从头播。
     private static func silentWAV() -> Data {
         let sampleRate: UInt32 = 8000
-        let samples = 8000  // 1 秒
+        let samples = 8000 * 180  // 3 分钟
         var data = Data()
         func u32(_ v: UInt32) {
             var x = v.littleEndian

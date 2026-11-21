@@ -79,4 +79,27 @@ enum ServerBridge {
     static func resetAdminPassword(_ newPassword: String) -> String {
         MobileResetAdminPassword(newPassword)
     }
+
+    /// 解密并取回一个应用密钥的明文（olmp_…）。密钥是 AES-GCM 加密存着的，
+    /// 密钥稳定，所以建好以后还能再看出来，不只显示一次。
+    /// 只返回 admin 自己的密钥；id 不对或解密失败返回 ""。
+    static func revealAppKey(_ id: Int) -> String {
+        MobileRevealAppKey(id)
+    }
+
+    /// 改一个应用密钥的备注名（只改名字，密钥本身不变）。
+    /// 返回 "" 表示成功，否则是错误信息。
+    static func renameAppKey(_ id: Int, newName: String) -> String {
+        MobileRenameAppKey(id, newName)
+    }
+
+    /// 伪 Emby 接口（/@emby）开没开。
+    static var isEmbyEnabled: Bool {
+        MobileIsEmbyEnabled()
+    }
+
+    /// 开关伪 Emby 接口（/@emby）。返回 "" 表示成功，否则是错误信息。
+    static func setEmbyEnabled(_ enabled: Bool) -> String {
+        MobileSetEmbyEnabled(enabled)
+    }
 }

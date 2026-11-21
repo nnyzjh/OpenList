@@ -24,7 +24,9 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/bootstrap"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/db"
+	"github.com/OpenListTeam/OpenList/v4/internal/media"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
+	"github.com/OpenListTeam/OpenList/v4/internal/setting"
 )
 
 // SetDataDir sets the absolute path of the data directory (config.json,
@@ -133,6 +135,84 @@ func SetAdminUsername(newUsername string) string {
 	}
 	admin.Username = newUsername
 	if err := op.UpdateUser(admin); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// RevealAppKey decrypts and returns the plain app key (e.g. "olmp_...") for
+// the given key ID. The stored secret is AES-GCM ciphertext encrypted with
+// a stable key, so a key created earlier can be shown again (not just once).
+// Only the admin's own keys can be revealed. Returns "" on any failure
+// (unknown ID, not the admin's key, or decrypt error).
+// Call only after Init (the database must be open).
+func RevealAppKey(id int) string {
+	admin, err := op.GetAdmin()
+	if err != nil {
+		return ""
+	}
+	k, err := db.GetMediaAppKey(uint(id))
+	if err != nil {
+		return ""
+	}
+	if k.UserID != admin.ID {
+		return ""
+	}
+	plain, err := media.DecryptAppKey(k.Secret)
+	if err != nil {
+		return ""
+	}
+	return plain
+}
+
+// RenameAppKey changes the display name (remark) of one of the admin's app
+// keys. There is no core rename endpoint, so this edits the stored row
+// directly (name only; the key itself never changes).
+// Call only after Init (the database must be open).
+// Returns "" on success, or an error message on failure.
+func RenameAppKey(id int, newName string) string {
+	admin, err := op.GetAdmin()
+	if err != nil {
+		return err.Error()
+	}
+	k, err := db.GetMediaAppKey(uint(id))
+	if err != nil {
+		return err.Error()
+	}
+	if k.UserID != admin.ID {
+		return "not your key"
+	}
+	k.Name = newName
+	gdb := db.GetDb()
+	if gdb == nil {
+		return "database not open"
+	}
+	if err := gdb.Save(k).Error; err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// IsEmbyEnabled reports whether the pseudo-Emby API (/@emby) is enabled.
+func IsEmbyEnabled() bool {
+	return setting.GetBool(conf.MediaEmbyEnabled)
+}
+
+// SetEmbyEnabled turns the pseudo-Emby API (/@emby) on or off.
+// It fetches the existing setting row and flips only its value.
+// Call only after Init (the database must be open).
+// Returns "" on success, or an error message on failure.
+func SetEmbyEnabled(enabled bool) string {
+	item, err := op.GetSettingItemByKey(conf.MediaEmbyEnabled)
+	if err != nil {
+		return err.Error()
+	}
+	if enabled {
+		item.Value = "true"
+	} else {
+		item.Value = "false"
+	}
+	if err := op.SaveSettingItem(item); err != nil {
 		return err.Error()
 	}
 	return ""

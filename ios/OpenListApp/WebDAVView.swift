@@ -1,8 +1,9 @@
 import SwiftUI
 
-// WebDAV 页：开关 + 地址 + 账号。
-// 开关改的是 core 里用户权限的 bit 8（读）/ bit 9（写），
-// 默认管理员读是开的、写是关的；开关状态从 /api/me 读。
+// WebDAV 页：服务开关 + 地址 + 账号。
+// 服务开关改的是 core 里用户权限的 bit 8（读），默认管理员读是开的；
+// 开关状态从 /api/me 读。写权限（上传、改名、删除）不在 App 里显示，
+// 要改去网页管理页改；写权限仅限管理员账号（一般给其他账号只读）。
 struct WebDAVView: View {
     @EnvironmentObject var appState: AppState
     @State private var copied: String?
@@ -23,26 +24,11 @@ struct WebDAVView: View {
         )
     }
 
-    private var writeBinding: Binding<Bool> {
-        Binding(
-            get: { appState.user?.webdavWrite ?? false },
-            set: { newValue in
-                Task {
-                    await appState.setWebDAV(
-                        read: appState.user?.webdavRead ?? false,
-                        write: newValue
-                    )
-                }
-            }
-        )
-    }
-
     var body: some View {
         NavigationStack {
             List {
                 Section("开关") {
-                    Toggle("WebDAV 读取", isOn: readBinding)
-                    Toggle("WebDAV 写入（上传、改名、删除）", isOn: writeBinding)
+                    Toggle("服务开关", isOn: readBinding)
                     if let error = appState.lastError {
                         Text(error)
                             .foregroundColor(.red)

@@ -68,6 +68,15 @@ jobs:
             ./mobile
           ls ios/OpenListApp/OpenListCore.xcframework
 
+      - name: Regenerate Xcode project from gen_xcodeproj.py
+        run: |
+          # 4.2.9.6: project.pbxproj is a generated file. Regenerate it so
+          # new targets/files (Live Activity extension, EmbyView, etc.)
+          # are always in the build, even if the committed .pbxproj is stale.
+          set -e
+          cd ios && python3 gen_xcodeproj.py
+          grep -c "OpenListLiveActivity" OpenListApp/OpenListApp.xcodeproj/project.pbxproj
+
       - name: Build unsigned .app with xcodebuild
         run: |
           xcodebuild -project ios/OpenListApp/OpenListApp.xcodeproj \
